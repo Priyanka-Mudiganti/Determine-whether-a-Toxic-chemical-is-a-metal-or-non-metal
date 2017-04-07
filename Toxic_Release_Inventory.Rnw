@@ -1,0 +1,108 @@
+\documentclass{article}
+\title{Toxic Release Inventory}
+\author{Priyanka Mudiganti}
+\begin{document}
+\SweaveOpts{concordance=TRUE,prefix.string=Priyanka}
+\begin{center}
+{\Large Priyanka Mudiganti}
+\end{center}
+
+\subsection*{Reading the data and splitting it into training and Validaton data respectively}
+<<label=FirstChunk ,echo=TRUE,results=verbatim>>=
+setwd("C:/Users/bharat/Desktop/JOBS/acedemic projects/Toxic Release Inventory") 
+project1 <- read.csv(file="rsei212_chemical.txt", header=T, sep="\t")
+pc=sample(2,nrow(project1),replace=TRUE,prob=c(0.8,0.2))
+train<-project1[pc==1,]
+validate<-project1[pc==2,]
+@
+\subsection*{Scatter plot to show the correlation between ITW and ToxicityClassInhale}
+<<label=SecondChunk ,echo=TRUE,results=verbatim,fig=TRUE>>=
+plot(train$ITW,train$ToxicityClassInhale,xlab="ITW", ylab="ToxicityClassInhale",col=c("red","blue"))
+abline(lm(train$ITW ~ train$ToxicityClassInhale))
+@
+\subsection*{3DScatter plot to show the correlation among Metal,OTW and ITW }
+<<label=ThirdChunk ,echo=TRUE,results=verbatim,fig=TRUE>>=
+library(scatterplot3d)
+scatterplot3d(train$Metal, train$OTW , train$ITW, xlab="metal", ylab="OTW" , zlab="ITW",color="blue",type="h")
+@
+\subsection*{To Plot a Decision Tree by taking Metal as the target variable using Ctree Package in R }
+<<label=FourthChunk ,echo=TRUE,results=verbatim,fig=TRUE>>=
+train = subset(train, select=c("Metal","ITW","POTWPartitionVolat","BCF"))
+row.names(train) = train$CASNumber
+train = na.omit(train)
+frmla = Metal ~ ITW + POTWPartitionVolat + BCF
+library(party)
+train_output_ctree = ctree(frmla, data = train)
+train_output_ctree
+plot(train_output_ctree, main="Toxic Chemical Data Tree")
+@
+\subsection*{prediction for validation data}
+<<label=FifthChunk ,echo=TRUE,results=verbatim>>=
+predict(train_output_ctree,validate,type='prob')
+@
+\subsection*{miss-classification error for train data}
+<<label=SixthChunk ,echo=TRUE,results=verbatim>>=
+tab<-table(predict(train_output_ctree),train$Metal)
+print(tab)
+1-sum(diag(tab))/sum(tab)
+@
+\subsection*{miss-classification error for validation data}
+<<label=SeventhChunk ,echo=TRUE,results=verbatim>>=
+testpred<-predict(train_output_ctree,newdata=validate)
+vtab<-table(testpred,validate$Metal)
+print(vtab)
+1-sum(diag(vtab))/sum(vtab)
+@
+\subsection*{To Plot a Decision Tree by taking Metal as the trget variable using rpart(CART) Package in R }
+<<label=EightChunk ,echo=TRUE,results=verbatim>>=
+library(rpart)
+train_output_rpart <- rpart(frmla,method="class", data=train)
+printcp(train_output_rpart)
+summary(train_output_rpart)
+@
+\subsection*{visualize cross-validation results}
+<<label=NinthChunk ,echo=TRUE,results=verbatim>>=
+plotcp(train_output_rpart) 
+@
+\subsection*{Plot the actual decision Tree}
+<<label=TenthChunk ,echo=TRUE,results=verbatim,fig=TRUE>>=
+plot(train_output_rpart, uniform=TRUE, main="Classification Tree for Training Data")
+text(train_output_rpart, use.n=TRUE, all=TRUE, cex=.8)
+@
+\subsection*{prediction of rpart for validation data}
+<<label=EleventhChunk ,echo=TRUE,results=verbatim>>=
+predict(train_output_rpart,validate,type='prob')
+@
+\subsection*{miss-classification error for train data using rpart}
+<<label=TwelthChunk ,echo=TRUE,results=verbatim>>=
+tab_rpart<-table(predict(train_output_rpart,type="class"),train$Metal)
+print(tab_rpart)
+1-sum(diag(tab_rpart))/sum(tab_rpart)
+@
+\subsection*{miss-classification error for validation data using rpart}
+<<label=ThirteenthChunk ,echo=TRUE,results=verbatim>>=
+testpred_tab_rpart<-predict(train_output_rpart,type="class",newdata=validate)
+vtab_rpart<-table(testpred_tab_rpart,validate$Metal)
+print(vtab_rpart)
+1-sum(diag(vtab_rpart))/sum(vtab_rpart)
+@
+\subsection*{Prune the tree to avoid overfitting}
+<<label=ForteenthChunk ,echo=TRUE,results=verbatim,fig=TRUE>>=
+p_train_output_rpart<- prune(train_output_rpart, cp=train_output_rpart$cptable[which.min(train_output_rpart$cptable[,"xerror"]),"CP"])
+plot(p_train_output_rpart, uniform=TRUE, main="Pruned Classification Tree for Training data")
+text(p_train_output_rpart, use.n=TRUE, all=TRUE, cex=.7)
+@
+\subsection*{miss-classification error for train data using rpart after pruning}
+<<label=FifteenthChunk ,echo=TRUE,results=verbatim>>=
+ptab_rpart<-table(predict(p_train_output_rpart,type="class"),train$Metal)
+print(ptab_rpart)
+1-sum(diag(ptab_rpart))/sum(ptab_rpart)
+@
+\subsection*{miss-classification error for validation data using rpart after pruning}
+<<label=SixteenthChunk ,echo=TRUE,results=verbatim>>=
+testpred_tab_rpart<-predict(p_train_output_rpart,type="class",newdata=validate)
+pv_tab_rpart<-table(testpred_tab_rpart,validate$Metal)
+print(pv_tab_rpart)
+1-sum(diag(pv_tab_rpart))/sum(pv_tab_rpart)
+@
+\end{document}
